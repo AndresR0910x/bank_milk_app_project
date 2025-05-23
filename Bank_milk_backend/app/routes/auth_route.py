@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Cookie
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
@@ -5,12 +6,12 @@ from pydantic import BaseModel, EmailStr
 from app.utils.rate_limit import RateLimiter
 from app.utils.email import send_reset_email
 from app.crud.user import get_user_by_email, create_user
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user import UserCreate, UserOut, UserBasicInfo
 from app.schemas.auth import Token, SuccessResponseScheme
 from app.database import get_db
 from app.core.auth import verify_password, create_access_token, refresh_token_state,decode_token
 from app.dependencies.auth import get_current_user, oauth2_scheme
-from app.crud.user import get_user_by_email, update_user_password
+from app.crud.user import get_user_by_email, update_user_password, eliminar_usuario, get_all_users
 from app.core.auth import create_password_reset_token, verify_password_reset_token, get_password_hash
 
 router = APIRouter()
@@ -132,3 +133,21 @@ def update_password(
     hashed_password = get_password_hash(new_password)
     update_user_password(db, current_user.id_usuario, hashed_password)
     return {"message": "Password updated successfully"}
+
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_cuenta_usuario(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    eliminar_usuario(db, current_user.id_usuario)
+    return None
+
+#Ruta para ver todos los usuarios registrados 
+@router.get("/todos", response_model=List[UserBasicInfo])
+def obtener_todos_usuarios(db: Session = Depends(get_db)):
+    """
+    Obtiene todos los usuarios registrados
+    (Actualmente accesible sin autenticación)
+    """
+    return get_all_users(db)

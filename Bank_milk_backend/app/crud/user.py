@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.usuarios import Usuario
 from app.core.auth import get_password_hash
 from app.utils.password_validation import validate_password
+from fastapi import HTTPException, status
 import json
 
 def get_user_by_email(db: Session, email: str):
@@ -44,3 +45,28 @@ def update_user_password(db: Session, user_id: int, new_password: str, new_hashe
         db.commit()
         return user
     return None
+
+def eliminar_usuario(db: Session, user_id: int):
+    db_user = db.query(Usuario).filter(Usuario.id_usuario == user_id).first()
+    if not db_user:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = "Usuario no encontrado"
+        )
+    
+    # Verificar si tiene formularios, muestras o analisis asociados 
+    if db_user.formulario_ingreso or db_user.muestras or db_user.analisis:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede eliminar el usuario porque tiene datos asociados"
+        )
+    
+    #Eliminar el usuario 
+    db.delete(db_user)
+    db.commit()
+    return {"message": "Usuario eliminado correctamente"}
+
+def get_all_users(db: Session):
+    """Obtiene todos los usuarios con paginación"""
+    return db.query(Usuario).all()
+
