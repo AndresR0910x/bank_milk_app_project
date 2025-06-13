@@ -4,11 +4,12 @@ from typing import List
 from datetime import date
 
 from app.database import get_db
-from app.schemas.muestra import MuestraCreate, MuestraUpdate, MuestraOut
+from app.schemas.muestra import MuestraCreate, MuestraUpdate, MuestraOut, MuestraResumenPorFecha
 from app.crud.muestra_de_leche import (
-    crear_muestra, 
-    actualizar_muestra, 
-    ver_muestras_por_fecha
+    crear_muestra,
+    actualizar_muestra,
+    ver_muestras_por_fecha,
+    obtener_resumen_todas_muestras
 )
 from app.dependencies.auth import get_current_user
 
@@ -25,7 +26,7 @@ def crear_nueva_muestra(
 @router.put("/{muestra_id}", response_model=MuestraOut)
 def actualizar_muestra_usuario(
     muestra_id: int,
-    muestra_data: MuestraUpdate,  # Usa MuestraUpdate en lugar de dict
+    muestra_data: MuestraUpdate,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -37,9 +38,11 @@ def obtener_muestras_por_fecha(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """
-    Endpoint robusto para obtener muestras por fecha
-    - Siempre devuelve una lista (vacía si no hay resultados)
-    - Maneja errores internos
-    """
     return ver_muestras_por_fecha(db, current_user.id_usuario, fecha_consulta)
+
+@router.get("/resumen-todas-fechas/", response_model=List[MuestraResumenPorFecha])
+def obtener_resumen_muestras(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    return obtener_resumen_todas_muestras(db, current_user.id_usuario)

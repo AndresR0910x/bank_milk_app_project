@@ -70,3 +70,5 @@ def get_all_users(db: Session):
     """Obtiene todos los usuarios con paginación"""
     return db.query(Usuario).all()
 
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(Usuario).filter(Usuario.id_usuario == user_id).first()

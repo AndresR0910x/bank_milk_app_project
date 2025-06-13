@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from datetime import date, time
@@ -5,9 +6,9 @@ from app.models import FormularioIngreso, MuestraDeLeche
 from app.schemas.muestra import MuestraCreate, MuestraUpdate
 
 def crear_muestra(db: Session, muestra_data: MuestraCreate, usuario_id: int):
-    # Verificar que el formulario de ingreso exista y pertenezca al usuario
+    # Verificar formulario
     formulario = db.query(FormularioIngreso).filter(
-        FormularioIngreso.id_f_ingreso == muestra_data.id_f_ingreso,  # Acceso como atributo
+        FormularioIngreso.id_f_ingreso == muestra_data.id_f_ingreso,
         FormularioIngreso.id_usuario == usuario_id
     ).first()
     
@@ -17,10 +18,12 @@ def crear_muestra(db: Session, muestra_data: MuestraCreate, usuario_id: int):
             detail="Formulario de ingreso no encontrado o no pertenece al usuario"
         )
     
-    # Crear la muestra usando .dict() para convertir el modelo Pydantic
+    # Convertir el modelo Pydantic a dict y manejar el tipo de recipiente
+    data_dict = muestra_data.model_dump()
+    
     db_muestra = MuestraDeLeche(
         id_usuario=usuario_id,
-        **muestra_data.model_dump()  # Forma correcta en Pydantic v2
+        **data_dict
     )
     
     db.add(db_muestra)
@@ -40,10 +43,8 @@ def actualizar_muestra(db: Session, muestra_id: int, update_data: MuestraUpdate,
             detail="Muestra no encontrada o no pertenece al usuario"
         )
     
-    # Convertir el modelo Pydantic a dict excluyendo valores None
     update_dict = update_data.model_dump(exclude_unset=True)
     
-    # Actualizar solo los campos proporcionados
     for key, value in update_dict.items():
         setattr(db_muestra, key, value)
     
@@ -51,23 +52,34 @@ def actualizar_muestra(db: Session, muestra_id: int, update_data: MuestraUpdate,
     db.refresh(db_muestra)
     return db_muestra
 
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
-from datetime import date
-from typing import List
-
 def ver_muestras_por_fecha(db: Session, usuario_id: int, fecha_consulta: date):
-    """
-    Versión adaptada a tu estructura de tabla
-    """
     try:
         muestras = db.query(MuestraDeLeche).filter(
             MuestraDeLeche.id_usuario == usuario_id,
             MuestraDeLeche.fecha_de_extraccion == fecha_consulta
         ).order_by(MuestraDeLeche.hora_de_extraccion.asc()).all()
         
-        return muestras or []  # Devuelve lista vacía si no hay resultados
-        
+        return muestras or []
     except Exception as e:
         print(f"Error en consulta: {str(e)}")
-        return []  # Devuelve lista vacía en caso de error
+        return []
+
+def obtener_resumen_todas_muestras(db: Session, usuario_id: int):
+    try:
+        resumen = (
+            db.query(
+                MuestraDeLeche.fecha_de_extraccion.label("fecha"),
+                func.count(MuestraDeLeche.id_muestra).label("cantidad")
+            )
+            .filter(MuestraDeLeche.id_usuario == usuario_id)
+            .group_by(MuestraDeLeche.fecha_de_extraccion)
+            .order_by(MuestraDeLeche.fecha_de_extraccion.asc())
+            .all()
+        )
+        return [
+            {"fecha": row.fecha, "cantidad": row.cantidad}
+            for row in resumen
+        ] or []
+    except Exception as e:
+        print(f"Error en consulta de resumen: {str(e)}")
+        return []

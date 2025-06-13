@@ -67,3 +67,38 @@ htmlcov/
 
 # Archivos de sistema
 Thumbs.db
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+web/.dart_tool/
+coverage/
+*.flutter-plugins
+*.flutter-plugins-dependencies
+
+# Archivos temporales y de análisis
+analysis_options.yaml
+*.iml
+
+# VS Code
+.vscode/
+
+# Android Studio
+.idea/
+
+# Archivos generados por pub
+pubspec.lock
+
+# Archivos temporales del sistema operativo
+.DS_Store
+Thumbs.db
