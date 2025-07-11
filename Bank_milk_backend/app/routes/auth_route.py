@@ -6,47 +6,84 @@ from pydantic import BaseModel, EmailStr
 from app.utils.rate_limit import RateLimiter
 from app.utils.email import send_reset_email
 from app.crud.user import get_user_by_email, create_user
-from app.schemas.user import UserCreate, UserOut, UserBasicInfo
+from app.schemas.user import UserCreate, UserOut, UserBasicInfo, TokenResponse
 from app.schemas.auth import Token, SuccessResponseScheme
 from app.database import get_db
 from app.core.auth import verify_password, create_access_token, refresh_token_state,decode_token
 from app.dependencies.auth import get_current_user, oauth2_scheme
 from app.crud.user import get_user_by_email, update_user_password, eliminar_usuario, get_all_users
-from app.core.auth import create_password_reset_token, verify_password_reset_token, get_password_hash
+from app.core.auth import create_password_reset_token, verify_password_reset_token, get_password_hash, create_refresh_token
 
 router = APIRouter()
 
 blacklisted_tokens = set()
 password_reset_limiter = RateLimiter(max_requests=3, window_seconds=3600)  # 3 requests per hour
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user_create: UserCreate, db: Session = Depends(get_db)):
     existing_user = get_user_by_email(db, email=user_create.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
 
     user = create_user(db, user_create)
-    return user
+    access_token = create_access_token(data={"sub": user.email})
+    refresh_token = create_refresh_token(data={"sub": user.email})
+    return {
+        "user": {
+            "id_usuario": user.id_usuario,
+            "email": user.email,
+            "full_name": user.full_name
+        },
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=TokenResponse)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = get_user_by_email(db, email=form_data.username)  # username es email aquí
+    user = get_user_by_email(db, email=form_data.username)
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Correo o contraseña incorrectos")
 
     access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token(data={"sub": user.email})
+    return {
+        "user": {
+            "id_usuario": user.id_usuario,
+            "email": user.email,
+            "full_name": user.full_name
+        },
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
 @router.get("/me", response_model=UserOut)
 def read_users_me(current_user = Depends(get_current_user)):
     return current_user
 
 
+from pydantic import BaseModel
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
 @router.post("/refresh")
-def refresh(refresh: str = Cookie(default=None)):
-    if not refresh:
-        raise HTTPException(status_code=400, detail="Refresh token requerido")
-    return refresh_token_state(token=refresh)
+def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    payload = decode_token(request.refresh_token)
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Token de refresco inválido")
+    
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(status_code=401, detail="Email no encontrado en el token")
+    
+    user = get_user_by_email(db, email=email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    new_access_token = create_access_token(data={"sub": email})
+    return {"access_token": new_access_token, "token_type": "bearer"}
 
 @router.get("/verify", response_model=SuccessResponseScheme)
 def verify(token: str, db: Session = Depends(get_db)):

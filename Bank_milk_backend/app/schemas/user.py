@@ -13,7 +13,7 @@ class UserOut(UserBase):
     id_usuario: int
     
     class Config:
-        from_attributes = True
+        from_attributes = True  # Allows mapping from SQLAlchemy models
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -38,7 +38,6 @@ class UserListOut(BaseModel):
     class Config:
         from_attributes = True
 
-
 class UserBasicInfo(BaseModel):
     id_usuario: int
     email: str
@@ -46,3 +45,9 @@ class UserBasicInfo(BaseModel):
     
     class Config:
         from_attributes = True
+
+class TokenResponse(BaseModel):
+    user: UserOut
+    access_token: str
+    refresh_token: str
+    token_type: str
