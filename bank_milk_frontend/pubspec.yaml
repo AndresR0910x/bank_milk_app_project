@@ -48,6 +48,8 @@ dependencies:
       ref: master
   permission_handler: ^12.0.0+1
   flutter_card_swiper: ^7.0.2
+  jwt_decoder: ^2.0.1
+  flutter_secure_storage: ^9.2.4
   
 
 
